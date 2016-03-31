@@ -3,6 +3,7 @@ import sys
 import urllib2
 import os
 import plistlib
+import subprocess
 
 # try to import from the default place Munki installs it
 try:
@@ -18,6 +19,8 @@ LOCAL_URLS = [ 'munki-cache', 'munki' ]
 CUSTOM_HTTP_HEADER = munkicommon.pref(
         munkicommon.ADDITIONAL_HTTP_HEADERS_KEY)
 
+devnull = open(os.devnull, 'wb')
+
 def network_on():
     try:
         response=urllib2.urlopen(munkicommon.pref('SoftwareRepoURL'),timeout=1)
@@ -29,23 +32,20 @@ def get_local_server():
   local_url = MASTER_URL
   for address in LOCAL_URLS:
       local_url = address
-      response = os.system("ping -c 1 " + local_url)
+      response = subprocess.check_call(['ping', '-c', '1', local_url], stdout=devnull, stderr=subprocess.STDOUT)
       if response == 0:
           pingstatus = "Network Active"
           local_url = local_url
-          print local_url
           break
       else:
           pingstatus = "Network Error"
           local_url = MASTER_URL
-          print local_url
   return local_url
 
 def write_conditional(location):
   munkicommon.set_pref('location', location)
 
 def main():
-
   pkg_url = get_local_server()
 
   # if pkg_url = master url, set PackageURL to the master and exit

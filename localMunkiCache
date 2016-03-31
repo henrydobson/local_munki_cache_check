@@ -1,0 +1,66 @@
+#!/usr/bin/python
+import sys
+import urllib2
+import os
+import plistlib
+
+# try to import from the default place Munki installs it
+try:
+  from munkilib import fetch, munkicommon
+except:
+  sys.path.append('/usr/local/munki')
+  from munkilib import fetch, munkicommon
+
+MASTER_URL = munkicommon.pref('SoftwareRepoURL') + '/pkgs/'
+
+LOCAL_URLS = [ 'munki-cache', 'munki' ]
+
+CUSTOM_HTTP_HEADER = munkicommon.pref(
+        munkicommon.ADDITIONAL_HTTP_HEADERS_KEY)
+
+def network_on():
+    try:
+        response=urllib2.urlopen(munkicommon.pref('SoftwareRepoURL'),timeout=1)
+        return True
+    except urllib2.URLError as err: pass
+    return False
+
+def get_local_server():
+  local_url = MASTER_URL
+  for address in LOCAL_URLS:
+      local_url = address
+      response = os.system("ping -c 1 " + local_url)
+      if response == 0:
+          pingstatus = "Network Active"
+          local_url = local_url
+          print local_url
+          break
+      else:
+          pingstatus = "Network Error"
+          local_url = MASTER_URL
+          print local_url
+  return local_url
+
+def write_conditional(location):
+  munkicommon.set_pref('location', location)
+
+def main():
+
+  pkg_url = get_local_server()
+
+  # if pkg_url = master url, set PackageURL to the master and exit
+  if pkg_url == MASTER_URL:
+    munkicommon.set_pref('PackageURL', MASTER_URL)
+    print 'Using Cloud Server'
+    write_conditional('Cloud')
+    sys.exit(0)
+
+  else:
+    # else, use the local
+    munkicommon.set_pref('PackageURL', pkg_url)
+    write_conditional('Local')
+    print 'Using Local Server'
+    sys.exit(0)
+
+if __name__ == '__main__':
+  main()
